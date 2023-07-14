@@ -25,6 +25,7 @@ const (
 	zoneRequestHTTPStatusMetricName              MetricName = "cloudflare_zone_requests_status"
 	zoneRequestBrowserMapMetricName              MetricName = "cloudflare_zone_requests_browser_map_page_views_count"
 	zoneRequestOriginStatusCountryHostMetricName MetricName = "cloudflare_zone_requests_origin_status_country_host"
+	zoneRequestOriginStatusHostProtocolMetricName   MetricName = "cloudflare_zone_requests_origin_status_host_protocol"
 	zoneRequestStatusCountryHostMetricName       MetricName = "cloudflare_zone_requests_status_country_host"
 	zoneBandwidthTotalMetricName                 MetricName = "cloudflare_zone_bandwidth_total"
 	zoneBandwidthCachedMetricName                MetricName = "cloudflare_zone_bandwidth_cached"
@@ -47,6 +48,7 @@ const (
 	workerDurationMetricName                     MetricName = "cloudflare_worker_duration"
 	poolHealthStatusMetricName                   MetricName = "cloudflare_zone_pool_health_status"
 	poolRequestsTotalMetricName                  MetricName = "cloudflare_zone_pool_requests_total"
+
 )
 
 type MetricsSet map[MetricName]struct{}
@@ -108,6 +110,12 @@ var (
 		Name: zoneRequestOriginStatusCountryHostMetricName.String(),
 		Help: "Count of not cached requests for zone per origin HTTP status per country per host",
 	}, []string{"zone", "status", "country", "host"},
+	)
+
+	zoneRequestOriginStatusHostProtocol = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: zoneRequestOriginStatusHostProtocolMetricName.String(),
+		Help: "Count of not cached requests for zone per origin HTTP status per host per protocol",
+	}, []string{"zone", "status", "host", "protocol"},
 	)
 
 	zoneRequestStatusCountryHost = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -255,6 +263,7 @@ func buildAllMetricsSet() MetricsSet {
 	allMetricsSet.Add(zoneRequestHTTPStatusMetricName)
 	allMetricsSet.Add(zoneRequestBrowserMapMetricName)
 	allMetricsSet.Add(zoneRequestOriginStatusCountryHostMetricName)
+	allMetricsSet.Add(zoneRequestOriginStatusHostProtocolMetricName)
 	allMetricsSet.Add(zoneRequestStatusCountryHostMetricName)
 	allMetricsSet.Add(zoneBandwidthTotalMetricName)
 	allMetricsSet.Add(zoneBandwidthCachedMetricName)
@@ -316,6 +325,9 @@ func mustRegisterMetrics(deniedMetrics MetricsSet) {
 	}
 	if !deniedMetrics.Has(zoneRequestOriginStatusCountryHostMetricName) {
 		prometheus.MustRegister(zoneRequestOriginStatusCountryHost)
+	}
+	if !deniedMetrics.Has(zoneRequestOriginStatusHostProtocolMetricName) {
+		prometheus.MustRegister(zoneRequestOriginStatusHostProtocol)
 	}
 	if !deniedMetrics.Has(zoneRequestStatusCountryHostMetricName) {
 		prometheus.MustRegister(zoneRequestStatusCountryHost)
@@ -556,13 +568,23 @@ func addHealthCheckGroups(z *zoneResp, name string) {
 func addHTTPAdaptiveGroups(z *zoneResp, name string) {
 
 	for _, g := range z.HTTPRequestsAdaptiveGroups {
+		status := strconv.Itoa(int(g.Dimensions.OriginResponseStatus))
 		zoneRequestOriginStatusCountryHost.With(
 			prometheus.Labels{
-				"zone":    name,
-				"status":  strconv.Itoa(int(g.Dimensions.OriginResponseStatus)),
-				"country": g.Dimensions.ClientCountryName,
-				"host":    g.Dimensions.ClientRequestHTTPHost,
+				"zone":     name,
+				"status":   status,
+				"country":  g.Dimensions.ClientCountryName,
+				"host":     g.Dimensions.ClientRequestHTTPHost,
 			}).Add(float64(g.Count))
+
+		zoneRequestOriginStatusHostProtocol.With(
+			prometheus.Labels{
+				"zone":     name,
+				"status":   status,
+				"host":     g.Dimensions.ClientRequestHTTPHost,
+				"protocol": g.Dimensions.ClientRequestHTTPProtocol,
+			}).Add(float64(g.Count))
+
 	}
 
 	for _, g := range z.HTTPRequestsEdgeCountryHost {

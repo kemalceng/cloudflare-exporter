@@ -150,9 +150,10 @@ type zoneResp struct {
 	HTTPRequestsAdaptiveGroups []struct {
 		Count      uint64 `json:"count"`
 		Dimensions struct {
-			OriginResponseStatus  uint16 `json:"originResponseStatus"`
-			ClientCountryName     string `json:"clientCountryName"`
-			ClientRequestHTTPHost string `json:"clientRequestHTTPHost"`
+			OriginResponseStatus      uint16 `json:"originResponseStatus"`
+			ClientCountryName         string `json:"clientCountryName"`
+			ClientRequestHTTPHost     string `json:"clientRequestHTTPHost"`
+			ClientRequestHTTPProtocol string `json:"clientRequestHTTPProtocol"`
 		} `json:"dimensions"`
 	} `json:"httpRequestsAdaptiveGroups"`
 
@@ -342,6 +343,7 @@ query ($zoneIDs: [String!], $mintime: Time!, $maxtime: Time!, $limit: Int!) {
 					originResponseStatus
 					clientCountryName
 					clientRequestHTTPHost
+					clientRequestHTTPProtocol
 				}
 			}
 			httpRequestsEdgeCountryHost: httpRequestsAdaptiveGroups(limit: $limit, filter: { datetime_geq: $mintime, datetime_lt: $maxtime }) {
